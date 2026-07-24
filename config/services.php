@@ -2,6 +2,11 @@
 
 return [
 
+    'whatsapp_gateway' => [
+        'url' => env('WHATSAPP_GATEWAY_URL', 'http://127.0.0.1:3001'),
+        'token' => env('WHATSAPP_GATEWAY_TOKEN'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

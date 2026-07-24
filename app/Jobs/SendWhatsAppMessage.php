@@ -1,0 +1,69 @@
+<?php
+
+namespace App\Jobs;
+
+use App\Models\WhatsAppMessageLog;
+use App\Services\WhatsAppGatewayService;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Bus\Queueable;
+use Throwable;
+
+class SendWhatsAppMessage implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public int $tries = 3;
+
+    public array $backoff = [10, 60, 300];
+
+    public function __construct(public WhatsAppMessageLog $messageLog)
+    {
+    }
+
+    public function handle(WhatsAppGatewayService $gateway): void
+    {
+        $result = $gateway->send($this->messageLog->recipient_jid, $this->messageLog->message);
+
+        $this->messageLog->update([
+            'status' => 'sent',
+            'provider_message_id' => $result['message_id'] ?? null,
+            'sent_at' => now(),
+            'error_message' => null,
+        ]);
+
+        $this->messageLog->delivery?->update([
+            'status' => 'sent',
+            'error_message' => null,
+        ]);
+
+        $report = $this->messageLog->report;
+
+        if ($report && ! $report->messageLogs()->whereIn('status', ['pending'])->exists()) {
+            $report->update([
+                'status' => $report->messageLogs()->where('status', 'failed')->exists() ? 'failed' : 'sent',
+                'sent_at' => now(),
+            ]);
+        }
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        $this->messageLog->update([
+            'status' => 'failed',
+            'error_message' => $exception->getMessage(),
+        ]);
+
+        $this->messageLog->delivery?->update([
+            'status' => 'failed',
+            'error_message' => $exception->getMessage(),
+        ]);
+
+        $this->messageLog->report?->update([
+            'status' => 'failed',
+            'send_error' => $exception->getMessage(),
+        ]);
+    }
+}

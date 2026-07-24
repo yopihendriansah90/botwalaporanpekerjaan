@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\WorkReports\Pages;
 
 use App\Filament\Resources\WorkReports\WorkReportResource;
-use Filament\Actions\CreateAction;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ManageRecords;
 
 class ManageWorkReports extends ManageRecords
@@ -13,7 +13,10 @@ class ManageWorkReports extends ManageRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+            Action::make('create')
+                ->label('Membuat Laporan')
+                ->icon('heroicon-o-plus')
+                ->url(fn (): string => WorkReportResource::getUrl('create')),
         ];
     }
 }
