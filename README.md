@@ -7,6 +7,45 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Wabot setup
+
+The application uses Laravel 12, Filament 4, MySQL, and a separate local Node.js service for Baileys.
+
+Run the Laravel database migrations and seed the default admin user:
+
+```bash
+php artisan migrate --seed
+```
+
+The admin panel is available at `/admin`. The initial credentials are `admin@mail.com` / `admin`; change the password after the first login.
+
+Configure the Laravel `.env` file:
+
+```env
+WHATSAPP_GATEWAY_URL=http://127.0.0.1:3001
+WHATSAPP_GATEWAY_TOKEN=change-this-token
+```
+
+Configure and run the WhatsApp service in a second terminal:
+
+```bash
+cd whatsapp-service
+cp .env.example .env
+# Set WHATSAPP_API_TOKEN to the same value as WHATSAPP_GATEWAY_TOKEN
+npm start
+```
+
+Scan the QR Code shown in the Node.js terminal. Then open `/admin/whatsapp-connection` to check the status and synchronize WhatsApp groups. A report can be sent from `/admin/work-reports` using the `Kirim ke WhatsApp` action.
+
+Run these processes for queue and scheduled delivery:
+
+```bash
+php artisan queue:work --tries=3
+php artisan schedule:work
+```
+
+Configure weekly schedules at `/admin/message-schedules`.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
@@ -57,3 +96,4 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# botwalaporanpekerjaan
