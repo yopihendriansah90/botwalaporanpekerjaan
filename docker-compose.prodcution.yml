@@ -1,0 +1,106 @@
+
+services:
+  app:
+    build: .
+    container_name: wabot-app
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - wabot-net
+
+  web:
+    image: nginx:1.27-alpine
+    container_name: wabot-web
+    restart: unless-stopped
+    # ports:
+    #   - "8000:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - wabot-net
+      - traefik-net[cite: 1]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wabot.rule=Host(`wabot.yopihendriansah.com`)"
+      - "traefik.http.routers.wabot.entrypoints=websecure"
+      - "traefik.http.routers.wabot.tls.certresolver=myresolver"
+      - "traefik.http.services.wabot.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik-net"
+    security_opt:
+      - no-new-privileges:true
+
+  db:
+    image: mysql:8.0
+    container_name: wabot-db
+    restart: unless-stopped
+    # ports:
+    #   - "3307:3306"
+    environment:
+      MYSQL_DATABASE: wabot_db
+      MYSQL_USER: yopi
+      MYSQL_PASSWORD: Walatraherbal@
+      MYSQL_ROOT_PASSWORD: Walatraherbal@
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - wabot-net
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:alpine
+    container_name: wabot-redis
+    restart: unless-stopped
+    # ports:
+    #   - "6380:6379"
+    networks:
+      - wabot-net
+    security_opt:
+      - no-new-privileges:true
+
+  queue:
+    build:
+      context: .
+      target: production
+    container_name: wabot-queue
+    restart: unless-stopped
+    command: ["php", "artisan", "queue:work", "redis", "--sleep=3", "--tries=3", "--max-time=3600"]
+    volumes:
+      - storage-prod:/var/www/html/storage
+    depends_on:
+      - redis
+      - db
+    networks:
+      - wabot-net
+    security_opt:
+      - no-new-privileges:true
+
+  whatsapp-gateway:
+    build: . # Sesuaikan dengan path folder tempat Dockerfile Baileys berada
+    container_name: wabot-whatsapp
+    restart: unless-stopped
+    # ports:
+    #   - "3001:3001"
+    environment:
+      - PORT=3001
+      - WHATSAPP_API_TOKEN=change-this-token
+    volumes:
+      - ./:/usr/src/app # Sesuaikan path folder Baileys
+      - ./auth_info:/usr/src/app/auth_info # Agar sesi login WhatsApp tidak hilang saat container restart
+    networks:
+      - wabot-net
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  wabot-net:
+    driver: bridge
+  raefik-net:
+    external: true
+volumes:
+  dbdata:
+  storage-prod:
