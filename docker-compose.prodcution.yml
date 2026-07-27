@@ -99,7 +99,7 @@ services:
 networks:
   wabot-net:
     driver: bridge
-  raefik-net:
+  traefik-net:
     external: true
 volumes:
   dbdata:
