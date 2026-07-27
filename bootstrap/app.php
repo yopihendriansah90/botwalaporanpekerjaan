@@ -12,7 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Laravel berjalan di belakang Traefik/Nginx pada production.
+        // Percayai header X-Forwarded-* agar request HTTPS dan cookie session
+        // dikenali dengan benar oleh Filament.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

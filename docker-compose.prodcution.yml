@@ -80,17 +80,20 @@ services:
       - no-new-privileges:true
 
   whatsapp-gateway:
-    build: . # Sesuaikan dengan path folder tempat Dockerfile Baileys berada
+    build:
+      context: ./whatsapp-service
+      dockerfile: Dockerfile
     container_name: wabot-whatsapp
     restart: unless-stopped
     # ports:
     #   - "3001:3001"
     environment:
-      - PORT=3001
-      - WHATSAPP_API_TOKEN=change-this-token
+      PORT: 3001
+      WHATSAPP_API_TOKEN: ${WHATSAPP_GATEWAY_TOKEN}
+      WHATSAPP_AUTH_DIR: /usr/src/app/auth_info
+      WHATSAPP_QR_TIMEOUT_MS: 60000
     volumes:
-      - ./:/usr/src/app # Sesuaikan path folder Baileys
-      - ./auth_info:/usr/src/app/auth_info # Agar sesi login WhatsApp tidak hilang saat container restart
+      - whatsapp-auth:/usr/src/app/auth_info
     networks:
       - wabot-net
     security_opt:
@@ -104,3 +107,4 @@ networks:
 volumes:
   dbdata:
   storage-prod:
+  whatsapp-auth:
