@@ -22,7 +22,7 @@ services:
       - app
     networks:
       - wabot-net
-      - traefik-net[cite: 1]
+      - traefik-net
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.wabot.rule=Host(`wabot.yopihendriansah.com`)"
