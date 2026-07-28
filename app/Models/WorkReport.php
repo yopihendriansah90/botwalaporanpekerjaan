@@ -15,7 +15,6 @@ class WorkReport extends Model
 
     protected $fillable = [
         'user_id',
-        'tenant_id',
         'message_schedule_id',
         'work_date',
         'officer_name',

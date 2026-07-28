@@ -13,6 +13,11 @@ trait BelongsToTenant
         static::addGlobalScope('tenant', function (Builder $builder): void {
             $context = app(TenantContext::class);
 
+            if (! app()->runningInConsole() && ! auth()->check()) {
+                $builder->where($builder->getModel()->getTable().'.tenant_id', 0);
+                return;
+            }
+
             if (! $context->shouldScope()) {
                 return;
             }

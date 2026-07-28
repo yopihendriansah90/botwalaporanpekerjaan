@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\WhatsAppConnection;
 use App\Models\WhatsAppGroup;
+use App\Services\TenantContext;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -21,7 +22,11 @@ class WhatsAppConnectionStats extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $connection = WhatsAppConnection::query()->latest('id')->first();
+        $tenantId = app(TenantContext::class)->id();
+        $connection = WhatsAppConnection::query()
+            ->when($tenantId, fn ($query) => $query->where('tenant_id', $tenantId))
+            ->latest('id')
+            ->first();
         $status = $connection?->status ?? 'disconnected';
 
         $statusLabel = match ($status) {

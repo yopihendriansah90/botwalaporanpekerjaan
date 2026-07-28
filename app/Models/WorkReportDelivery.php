@@ -12,7 +12,7 @@ class WorkReportDelivery extends Model
     use HasFactory, BelongsToTenant;
 
     protected $fillable = [
-        'tenant_id', 'work_report_id', 'whatsapp_group_id', 'whatsapp_connection_id',
+        'work_report_id', 'whatsapp_group_id', 'whatsapp_connection_id',
         'scheduled_at', 'status', 'dispatched_at', 'whatsapp_message_log_id', 'error_message',
     ];
 

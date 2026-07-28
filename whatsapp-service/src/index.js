@@ -9,12 +9,14 @@ import makeWASocket, {
 import express from 'express'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import crypto from 'node:crypto'
 import Pino from 'pino'
 import QRCode from 'qrcode'
 import qrcode from 'qrcode-terminal'
 
 const port = Number(process.env.PORT ?? 3001)
 const apiToken = process.env.WHATSAPP_API_TOKEN
+const tenantSigningKey = process.env.WHATSAPP_TENANT_SIGNING_KEY || apiToken
 const authRoot = process.env.WHATSAPP_AUTH_DIR ?? './auth_info'
 const qrTimeoutMs = Number(process.env.WHATSAPP_QR_TIMEOUT_MS ?? 60000)
 const logger = Pino({ level: process.env.LOG_LEVEL ?? 'info' })
@@ -35,7 +37,7 @@ function getSession(tenantId) {
 }
 
 function tenantKey(request) {
-  return String(request.header('x-tenant-id') || 'default').replace(/[^a-zA-Z0-9_-]/g, '_')
+  return request.tenantId
 }
 
 function authPath(tenantId) {
@@ -47,6 +49,23 @@ function requireApiToken(request, response, next) {
     return response.status(401).json({ message: 'Unauthorized' })
   }
 
+  next()
+}
+
+function requireTenantSignature(request, response, next) {
+  const tenantId = String(request.header('x-tenant-id') ?? '')
+  const signature = String(request.header('x-tenant-signature') ?? '')
+
+  if (!/^\d+$/.test(tenantId) || !tenantSigningKey || !/^[a-f0-9]{64}$/i.test(signature)) {
+    return response.status(403).json({ message: 'Invalid tenant context' })
+  }
+
+  const expected = crypto.createHmac('sha256', tenantSigningKey).update(tenantId).digest('hex')
+  const valid = crypto.timingSafeEqual(Buffer.from(signature.toLowerCase()), Buffer.from(expected))
+
+  if (!valid) return response.status(403).json({ message: 'Invalid tenant signature' })
+
+  request.tenantId = tenantId
   next()
 }
 
@@ -148,6 +167,7 @@ app.use(express.json({ limit: '1mb' }))
 
 app.get('/health', (_request, response) => response.json({ ok: true, service: 'whatsapp-service' }))
 app.use(requireApiToken)
+app.use(requireTenantSignature)
 
 app.get('/status', (request, response) => {
   const tenantId = tenantKey(request)

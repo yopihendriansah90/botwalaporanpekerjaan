@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use LogicException;
 
 class WhatsAppGatewayService
 {
@@ -11,10 +12,21 @@ class WhatsAppGatewayService
     {
         $tenantId ??= app(TenantContext::class)->id();
 
+        if (! $tenantId) {
+            throw new LogicException('Tenant WhatsApp belum ditentukan.');
+        }
+
+        $tenantSignature = hash_hmac(
+            'sha256',
+            (string) $tenantId,
+            (string) config('services.whatsapp_gateway.signing_key'),
+        );
+
         return Http::baseUrl((string) config('services.whatsapp_gateway.url'))
             ->withHeaders([
                 'x-api-key' => (string) config('services.whatsapp_gateway.token'),
                 'x-tenant-id' => (string) $tenantId,
+                'x-tenant-signature' => $tenantSignature,
             ])
             ->acceptJson()
             ->timeout(15);

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\WhatsAppMessageLog;
 use App\Services\WhatsAppGatewayService;
 use App\Services\TenantContext;
+use App\Services\WhatsAppTenantIntegrity;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -39,6 +40,8 @@ class SendWhatsAppMessage implements ShouldQueue
         if ($delivery && ! in_array($delivery->status, ['pending', 'queued'], true)) {
             return;
         }
+
+        app(WhatsAppTenantIntegrity::class)->assertLog($this->messageLog);
 
         $result = app(TenantContext::class)->run((int) $this->messageLog->tenant_id, function () use ($gateway): array {
             return $gateway->send(

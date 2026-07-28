@@ -11,6 +11,9 @@ class ScheduleWorkReportToWhatsApp
 {
     public function schedule(WorkReport $report): void
     {
+        $tenantId = (int) $report->tenant_id;
+        $integrity = app(WhatsAppTenantIntegrity::class);
+        $integrity->assertReport($report, $tenantId);
         $schedule = $report->messageSchedule;
 
         if (! $schedule) {
@@ -21,6 +24,8 @@ class ScheduleWorkReportToWhatsApp
                     ->where('is_active', true))
                 ->first();
         }
+
+        $integrity->assertSchedule($schedule, $tenantId);
 
         if (! $schedule) {
             throw new RuntimeException('Belum ada jadwal aktif untuk hari laporan ini.');
@@ -39,7 +44,10 @@ class ScheduleWorkReportToWhatsApp
             throw new RuntimeException("Jadwal {$schedule->name} belum memiliki jam untuk hari laporan ini.");
         }
 
-        $groups = $schedule->whatsappGroups()->where('is_active', true)->get();
+        $groups = $schedule->whatsappGroups()
+            ->where('whatsapp_groups.tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->get();
 
         if ($groups->isEmpty()) {
             throw new RuntimeException('Jadwal belum memiliki grup WhatsApp aktif.');
@@ -64,6 +72,8 @@ class ScheduleWorkReportToWhatsApp
         );
 
         foreach ($groups as $group) {
+            $integrity->assertGroup($group, $tenantId);
+
             $report->deliveries()->create([
                 'whatsapp_group_id' => $group->id,
                 'whatsapp_connection_id' => $group->whatsapp_connection_id,

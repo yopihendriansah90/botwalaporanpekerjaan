@@ -132,7 +132,9 @@ class WhatsAppConnection extends Page
             $wasConnected = ($this->status['state'] ?? null) === 'connected';
             $this->status = app(WhatsAppGatewayService::class)->status();
 
+            $tenantId = $this->activeTenantId();
             $connection = WhatsAppConnectionModel::firstOrCreate([
+                'tenant_id' => $tenantId,
                 'name' => 'Koneksi utama',
             ]);
 
@@ -176,7 +178,9 @@ class WhatsAppConnection extends Page
     {
         try {
             $groups = app(WhatsAppGatewayService::class)->groups();
+            $tenantId = $this->activeTenantId();
             $connection = WhatsAppConnectionModel::firstOrCreate([
+                'tenant_id' => $tenantId,
                 'name' => 'Koneksi utama',
             ]);
 
@@ -189,6 +193,7 @@ class WhatsAppConnection extends Page
 
                 WhatsAppGroup::updateOrCreate(
                     [
+                        'tenant_id' => $tenantId,
                         'whatsapp_connection_id' => $connection->id,
                         'jid' => $group['jid'],
                     ],
@@ -201,6 +206,7 @@ class WhatsAppConnection extends Page
             }
 
             $connection->groups()
+                ->where('tenant_id', $tenantId)
                 ->when(
                     filled($groupJids),
                     fn ($query) => $query->whereNotIn('jid', $groupJids),
@@ -208,7 +214,12 @@ class WhatsAppConnection extends Page
                 )
                 ->update(['is_active' => false]);
 
-            $this->groups = $connection->groups()->where('is_active', true)->orderBy('name')->get()->toArray();
+            $this->groups = $connection->groups()
+                ->where('tenant_id', $tenantId)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->toArray();
             $this->dispatch('whatsapp-data-updated');
 
             if ($notify) {
@@ -224,5 +235,16 @@ class WhatsAppConnection extends Page
                 ->danger()
                 ->send();
         }
+    }
+
+    private function activeTenantId(): int
+    {
+        $tenantId = (int) app(\App\Services\TenantContext::class)->id();
+
+        if ($tenantId < 1) {
+            throw new \RuntimeException('Workspace WhatsApp belum ditentukan.');
+        }
+
+        return $tenantId;
     }
 }

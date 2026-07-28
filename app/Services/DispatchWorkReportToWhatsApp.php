@@ -11,11 +11,27 @@ class DispatchWorkReportToWhatsApp
 {
     public function dispatch(WorkReport $report): void
     {
-        $groups = $report->whatsappGroups()->where('is_active', true)->get();
+        $tenantId = (int) $report->tenant_id;
+        $integrity = app(WhatsAppTenantIntegrity::class);
+        $integrity->assertReport($report, $tenantId);
+
+        $groups = $report->whatsappGroups()
+            ->where('whatsapp_groups.tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->get();
 
         if ($groups->isEmpty() && $report->message_schedule_id) {
-            $groups = $report->messageSchedule
+            $schedule = $report->messageSchedule;
+
+            if (! $schedule) {
+                throw new RuntimeException('Jadwal laporan tidak ditemukan.');
+            }
+
+            $integrity->assertSchedule($schedule, $tenantId);
+
+            $groups = $schedule
                 ->whatsappGroups()
+                ->where('whatsapp_groups.tenant_id', $tenantId)
                 ->where('whatsapp_groups.is_active', true)
                 ->get();
         }
@@ -39,6 +55,8 @@ class DispatchWorkReportToWhatsApp
         ]);
 
         foreach ($groups as $group) {
+            $integrity->assertGroup($group, $tenantId);
+
             $log = WhatsAppMessageLog::create([
                 'whatsapp_connection_id' => $group->whatsapp_connection_id,
                 'work_report_id' => $report->id,

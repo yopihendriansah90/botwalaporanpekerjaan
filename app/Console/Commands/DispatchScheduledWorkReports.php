@@ -9,6 +9,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 use App\Services\TenantContext;
+use App\Services\WhatsAppTenantIntegrity;
 
 class DispatchScheduledWorkReports extends Command
 {
@@ -37,6 +38,8 @@ class DispatchScheduledWorkReports extends Command
                         if (! $lockedDelivery || $lockedDelivery->status !== 'pending') {
                             return;
                         }
+
+                        app(WhatsAppTenantIntegrity::class)->assertDelivery($lockedDelivery);
 
                         $log = WhatsAppMessageLog::create([
                             'whatsapp_connection_id' => $lockedDelivery->whatsapp_connection_id,

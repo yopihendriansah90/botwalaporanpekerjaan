@@ -121,6 +121,7 @@ services:
     environment:
       PORT: 3001
       WHATSAPP_API_TOKEN: ${WHATSAPP_GATEWAY_TOKEN}
+      WHATSAPP_TENANT_SIGNING_KEY: ${WHATSAPP_GATEWAY_SIGNING_KEY}
       WHATSAPP_AUTH_DIR: /usr/src/app/auth_info
       WHATSAPP_QR_TIMEOUT_MS: 60000
     volumes:

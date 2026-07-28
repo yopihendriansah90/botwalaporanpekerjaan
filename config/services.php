@@ -5,6 +5,7 @@ return [
     'whatsapp_gateway' => [
         'url' => env('WHATSAPP_GATEWAY_URL', 'http://127.0.0.1:3001'),
         'token' => env('WHATSAPP_GATEWAY_TOKEN'),
+        'signing_key' => env('WHATSAPP_GATEWAY_SIGNING_KEY', env('WHATSAPP_GATEWAY_TOKEN')),
     ],
 
     /*

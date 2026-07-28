@@ -16,7 +16,6 @@ class WhatsAppMessageLog extends Model
 
     protected $fillable = [
         'whatsapp_connection_id',
-        'tenant_id',
         'work_report_id',
         'whatsapp_group_id',
         'recipient_jid',

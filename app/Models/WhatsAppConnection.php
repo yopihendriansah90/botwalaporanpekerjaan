@@ -15,7 +15,6 @@ class WhatsAppConnection extends Model
 
     protected $fillable = [
         'name',
-        'tenant_id',
         'phone',
         'status',
         'last_connected_at',

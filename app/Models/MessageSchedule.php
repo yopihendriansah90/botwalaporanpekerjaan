@@ -12,7 +12,7 @@ class MessageSchedule extends Model
 {
     use HasFactory, BelongsToTenant;
 
-    protected $fillable = ['tenant_id', 'name', 'timezone', 'is_active', 'slots'];
+    protected $fillable = ['name', 'timezone', 'is_active', 'slots'];
 
     protected function casts(): array
     {

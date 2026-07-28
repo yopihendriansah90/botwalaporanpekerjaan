@@ -11,7 +11,7 @@ class MessageScheduleSlot extends Model
 {
     use HasFactory, BelongsToTenant;
 
-    protected $fillable = ['tenant_id', 'message_schedule_id', 'weekday', 'send_time', 'is_active'];
+    protected $fillable = ['message_schedule_id', 'weekday', 'send_time', 'is_active'];
 
     public function schedule(): BelongsTo
     {

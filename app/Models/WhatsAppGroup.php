@@ -17,7 +17,6 @@ class WhatsAppGroup extends Model
 
     protected $fillable = [
         'whatsapp_connection_id',
-        'tenant_id',
         'jid',
         'name',
         'participants_count',

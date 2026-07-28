@@ -27,7 +27,13 @@ class TenantContext
 
         $selected = session('tenant_id');
 
-        if ($selected && ($user->isSuperAdmin() || $user->tenants()->whereKey($selected)->exists())) {
+        $selectedIsAllowed = $selected && (
+            $user->isSuperAdmin()
+                ? Tenant::query()->whereKey($selected)->where('is_active', true)->exists()
+                : $user->tenants()->whereKey($selected)->where('tenants.is_active', true)->exists()
+        );
+
+        if ($selectedIsAllowed) {
             return (int) $selected;
         }
 
@@ -68,6 +74,20 @@ class TenantContext
 
     public function set(?int $tenantId): void
     {
+        $user = app()->runningInConsole() ? null : auth()->user();
+
+        if ($tenantId !== null) {
+            $tenant = Tenant::query()->find($tenantId);
+
+            if (! $tenant || ! $tenant->is_active) {
+                abort(403, 'Workspace tidak aktif atau tidak ditemukan.');
+            }
+
+            if ($user && ! $user->isSuperAdmin() && ! $user->tenants()->whereKey($tenantId)->exists()) {
+                abort(403, 'Anda tidak memiliki akses ke workspace tersebut.');
+            }
+        }
+
         $this->forcedTenantId = $tenantId;
 
         if (! app()->runningInConsole()) {
