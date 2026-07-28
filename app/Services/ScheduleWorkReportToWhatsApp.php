@@ -26,6 +26,10 @@ class ScheduleWorkReportToWhatsApp
             throw new RuntimeException('Belum ada jadwal aktif untuk hari laporan ini.');
         }
 
+        if (! $schedule->is_active) {
+            throw new RuntimeException('Jadwal yang dipilih sedang nonaktif. Pilih jadwal aktif terlebih dahulu.');
+        }
+
         $slot = $schedule->slots()
             ->where('weekday', $report->work_date->dayOfWeekIso)
             ->where('is_active', true)
@@ -54,7 +58,10 @@ class ScheduleWorkReportToWhatsApp
             'send_error' => null,
         ]);
 
-        $report->deliveries()->delete();
+        app(CancelPendingWorkReportDeliveries::class)->cancel(
+            $report,
+            'Pengiriman lama dibatalkan karena laporan dijadwalkan ulang.',
+        );
 
         foreach ($groups as $group) {
             $report->deliveries()->create([

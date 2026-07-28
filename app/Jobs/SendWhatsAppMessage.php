@@ -26,6 +26,20 @@ class SendWhatsAppMessage implements ShouldQueue
 
     public function handle(WhatsAppGatewayService $gateway): void
     {
+        $this->messageLog->refresh();
+
+        // Job dapat sudah berada di Redis ketika laporan dijadwalkan ulang
+        // atau dibatalkan. Jangan kirim log yang sudah tidak pending.
+        if ($this->messageLog->status !== 'pending') {
+            return;
+        }
+
+        $delivery = $this->messageLog->delivery;
+
+        if ($delivery && ! in_array($delivery->status, ['pending', 'queued'], true)) {
+            return;
+        }
+
         $result = app(TenantContext::class)->run((int) $this->messageLog->tenant_id, function () use ($gateway): array {
             return $gateway->send(
                 $this->messageLog->recipient_jid,
@@ -58,6 +72,12 @@ class SendWhatsAppMessage implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
+        $this->messageLog->refresh();
+
+        if ($this->messageLog->status !== 'pending') {
+            return;
+        }
+
         $this->messageLog->update([
             'status' => 'failed',
             'error_message' => $exception->getMessage(),

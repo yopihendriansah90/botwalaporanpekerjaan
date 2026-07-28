@@ -5,6 +5,7 @@ namespace App\Filament\Resources\WorkReports\Pages;
 use App\Filament\Resources\WorkReports\WorkReportResource;
 use App\Services\DispatchWorkReportToWhatsApp;
 use App\Services\ScheduleWorkReportToWhatsApp;
+use App\Services\CancelPendingWorkReportDeliveries;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -105,7 +106,7 @@ class EditWorkReport extends EditRecord
     protected function afterSave(): void
     {
         if (! $this->shouldSend && ! $this->shouldSchedule) {
-            $this->record->deliveries()->whereIn('status', ['pending', 'queued'])->delete();
+            app(CancelPendingWorkReportDeliveries::class)->cancel($this->record);
 
             Notification::make()
                 ->title('Draf laporan berhasil diperbarui')

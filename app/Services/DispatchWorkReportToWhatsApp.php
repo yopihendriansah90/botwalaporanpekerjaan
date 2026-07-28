@@ -11,10 +11,6 @@ class DispatchWorkReportToWhatsApp
 {
     public function dispatch(WorkReport $report): void
     {
-        // Menghapus delivery terjadwal lama agar laporan yang dikirim manual
-        // tidak ikut terkirim lagi oleh scheduler.
-        $report->deliveries()->whereIn('status', ['pending', 'queued'])->delete();
-
         $groups = $report->whatsappGroups()->where('is_active', true)->get();
 
         if ($groups->isEmpty() && $report->message_schedule_id) {
@@ -29,6 +25,11 @@ class DispatchWorkReportToWhatsApp
         }
 
         $message = $report->toWhatsappMessage();
+
+        app(CancelPendingWorkReportDeliveries::class)->cancel(
+            $report,
+            'Pengiriman lama dibatalkan karena laporan dikirim ulang secara manual.',
+        );
 
         $report->update([
             'status' => 'pending',

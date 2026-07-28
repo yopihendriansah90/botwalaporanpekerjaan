@@ -59,12 +59,14 @@ class WhatsAppMessageLogResource extends Resource
                         'pending' => 'Menunggu',
                         'sent' => 'Terkirim',
                         'failed' => 'Gagal',
+                        'cancelled' => 'Dibatalkan',
                         default => $state,
                     })
                     ->color(fn (string $state): string => match ($state) {
                         'pending' => 'warning',
                         'sent' => 'success',
                         'failed' => 'danger',
+                        'cancelled' => 'gray',
                         default => 'gray',
                     })
                     ->sortable(),
@@ -86,6 +88,7 @@ class WhatsAppMessageLogResource extends Resource
                         'pending' => 'Menunggu',
                         'sent' => 'Terkirim',
                         'failed' => 'Gagal',
+                        'cancelled' => 'Dibatalkan',
                     ]),
             ])
             ->recordActions([])

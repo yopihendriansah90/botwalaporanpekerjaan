@@ -5,6 +5,7 @@ namespace App\Filament\Resources\WorkReports\Pages;
 use App\Filament\Resources\WorkReports\WorkReportResource;
 use App\Services\DispatchWorkReportToWhatsApp;
 use App\Services\ScheduleWorkReportToWhatsApp;
+use App\Services\CancelPendingWorkReportDeliveries;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -94,7 +95,7 @@ class CreateWorkReport extends CreateRecord
     protected function afterCreate(): void
     {
         if (! $this->shouldSend && ! $this->shouldSchedule) {
-            $this->record->deliveries()->whereIn('status', ['pending', 'queued'])->delete();
+            app(CancelPendingWorkReportDeliveries::class)->cancel($this->record);
 
             Notification::make()
                 ->title('Laporan berhasil disimpan sebagai draf')

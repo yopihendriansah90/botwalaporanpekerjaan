@@ -215,6 +215,7 @@ class WorkReportResource extends Resource
                         'pending' => 'Menunggu kirim',
                         'sent' => 'Terkirim',
                         'failed' => 'Gagal',
+                        'cancelled' => 'Dibatalkan',
                         default => $state,
                     })
                     ->color(fn (string $state): string => match ($state) {
@@ -223,6 +224,7 @@ class WorkReportResource extends Resource
                         'pending' => 'warning',
                         'sent' => 'success',
                         'failed' => 'danger',
+                        'cancelled' => 'gray',
                         default => 'gray',
                     })
                     ->sortable(),
@@ -244,6 +246,7 @@ class WorkReportResource extends Resource
                         'pending' => 'Menunggu kirim',
                         'sent' => 'Terkirim',
                         'failed' => 'Gagal',
+                        'cancelled' => 'Dibatalkan',
                     ]),
             ])
             ->recordActions([EditAction::make(), DeleteAction::make()])

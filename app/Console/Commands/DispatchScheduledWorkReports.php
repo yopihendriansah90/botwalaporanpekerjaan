@@ -20,8 +20,7 @@ class DispatchScheduledWorkReports extends Command
     {
         $deliveries = WorkReportDelivery::query()
             ->where('status', 'pending')
-            ->where('scheduled_at', '<=', now())
-            ->with(['report', 'group'])
+            ->where('scheduled_at', '<=', now('UTC'))
             ->limit(100)
             ->get();
 
@@ -29,29 +28,33 @@ class DispatchScheduledWorkReports extends Command
             try {
                 app(TenantContext::class)->run((int) $delivery->tenant_id, function () use ($delivery): void {
                     DB::transaction(function () use ($delivery): void {
-                        $delivery->refresh();
+                        $lockedDelivery = WorkReportDelivery::query()
+                            ->whereKey($delivery->id)
+                            ->lockForUpdate()
+                            ->with(['report', 'group'])
+                            ->first();
 
-                        if ($delivery->status !== 'pending') {
+                        if (! $lockedDelivery || $lockedDelivery->status !== 'pending') {
                             return;
                         }
 
                         $log = WhatsAppMessageLog::create([
-                            'whatsapp_connection_id' => $delivery->whatsapp_connection_id,
-                            'work_report_id' => $delivery->work_report_id,
-                            'whatsapp_group_id' => $delivery->whatsapp_group_id,
-                            'recipient_jid' => $delivery->group->jid,
-                            'message' => $delivery->report->toWhatsappMessage(),
+                            'whatsapp_connection_id' => $lockedDelivery->whatsapp_connection_id,
+                            'work_report_id' => $lockedDelivery->work_report_id,
+                            'whatsapp_group_id' => $lockedDelivery->whatsapp_group_id,
+                            'recipient_jid' => $lockedDelivery->group->jid,
+                            'message' => $lockedDelivery->report->toWhatsappMessage(),
                             'status' => 'pending',
                         ]);
 
-                        $delivery->update([
+                        $lockedDelivery->update([
                             'status' => 'queued',
                             'dispatched_at' => now(),
                             'whatsapp_message_log_id' => $log->id,
                         ]);
 
-                        $delivery->report->update(['status' => 'pending']);
-                        SendWhatsAppMessage::dispatch($log);
+                        $lockedDelivery->report->update(['status' => 'pending']);
+                        SendWhatsAppMessage::dispatch($log)->afterCommit();
                     });
                 });
             } catch (Throwable $exception) {
