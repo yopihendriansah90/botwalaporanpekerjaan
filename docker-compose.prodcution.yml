@@ -4,6 +4,10 @@ services:
     build: .
     container_name: wabot-app
     restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      WHATSAPP_GATEWAY_URL: http://whatsapp-gateway:3001
     volumes:
       - ./:/var/www/html
     networks:
@@ -69,6 +73,31 @@ services:
     container_name: wabot-queue
     restart: unless-stopped
     command: ["php", "artisan", "queue:work", "redis", "--sleep=3", "--tries=3", "--max-time=3600"]
+    env_file:
+      - .env
+    environment:
+      WHATSAPP_GATEWAY_URL: http://whatsapp-gateway:3001
+    volumes:
+      - storage-prod:/var/www/html/storage
+    depends_on:
+      - redis
+      - db
+    networks:
+      - wabot-net
+    security_opt:
+      - no-new-privileges:true
+
+  scheduler:
+    build:
+      context: .
+      target: production
+    container_name: wabot-scheduler
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work"]
+    env_file:
+      - .env
+    environment:
+      WHATSAPP_GATEWAY_URL: http://whatsapp-gateway:3001
     volumes:
       - storage-prod:/var/www/html/storage
     depends_on:
@@ -85,8 +114,6 @@ services:
       dockerfile: Dockerfile
     container_name: wabot-whatsapp
     restart: unless-stopped
-    # ports:
-    #   - "3001:3001"
     environment:
       PORT: 3001
       WHATSAPP_API_TOKEN: ${WHATSAPP_GATEWAY_TOKEN}
