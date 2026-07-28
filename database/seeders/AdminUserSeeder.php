@@ -18,9 +18,12 @@ class AdminUserSeeder extends Seeder
             [
                 'name' => 'Administrator',
                 'password' => 'admin',
+                'account_type' => 'superadmin',
                 'email_verified_at' => now(),
             ],
         );
+
+        $user->update(['account_type' => 'superadmin']);
 
         $tenant = Tenant::firstOrCreate(
             ['slug' => 'tenant-utama'],

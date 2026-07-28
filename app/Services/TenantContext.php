@@ -27,8 +27,12 @@ class TenantContext
 
         $selected = session('tenant_id');
 
-        if ($selected && $user->tenants()->whereKey($selected)->exists()) {
+        if ($selected && ($user->isSuperAdmin() || $user->tenants()->whereKey($selected)->exists())) {
             return (int) $selected;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return Tenant::query()->where('slug', 'tenant-utama')->value('id');
         }
 
         $tenantId = $user->tenants()->where('tenants.is_active', true)->value('tenants.id');
@@ -39,6 +43,21 @@ class TenantContext
         }
 
         return null;
+    }
+
+    public function shouldScope(): bool
+    {
+        if (app()->runningInConsole()) {
+            return false;
+        }
+
+        $user = auth()->user();
+        return $user !== null && ! $user->isSuperAdmin();
+    }
+
+    public function creationId(): ?int
+    {
+        return $this->id() ?? Tenant::query()->where('slug', 'tenant-utama')->value('id');
     }
 
     public function current(): ?Tenant

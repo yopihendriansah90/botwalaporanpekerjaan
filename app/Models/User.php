@@ -25,11 +25,17 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'account_type',
     ];
 
     public function tenants(): BelongsToMany
     {
         return $this->belongsToMany(Tenant::class)->withPivot('role')->withTimestamps();
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->account_type === 'superadmin';
     }
 
     /**

@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Users\Pages;
 
 use App\Filament\Resources\Users\UserResource;
-use App\Services\TenantContext;
+use App\Models\Tenant;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateUser extends CreateRecord
@@ -19,10 +19,12 @@ class CreateUser extends CreateRecord
 
     protected function afterCreate(): void
     {
-        $tenantId = app(TenantContext::class)->id();
+        $tenant = Tenant::create([
+            'name' => 'Workspace '.$this->record->name,
+            'slug' => 'user-'.$this->record->id,
+            'is_active' => true,
+        ]);
 
-        if ($tenantId) {
-            $this->record->tenants()->syncWithoutDetaching([$tenantId => ['role' => 'member']]);
-        }
+        $this->record->tenants()->syncWithoutDetaching([$tenant->id => ['role' => 'owner']]);
     }
 }

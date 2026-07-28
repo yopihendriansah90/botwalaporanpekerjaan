@@ -28,9 +28,18 @@ class TenantResource extends Resource
     protected static ?string $modelLabel = 'workspace';
     protected static ?string $pluralModelLabel = 'workspace';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->isSuperAdmin() ?? false;
+    }
+
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->whereHas('users', fn ($query) => $query->whereKey(auth()->id()));
+        return parent::getEloquentQuery()
+            ->when(
+                ! auth()->user()?->isSuperAdmin(),
+                fn ($query) => $query->whereHas('users', fn ($userQuery) => $userQuery->whereKey(auth()->id())),
+            );
     }
 
     public static function form(Schema $schema): Schema

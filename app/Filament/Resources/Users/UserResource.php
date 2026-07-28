@@ -32,12 +32,17 @@ class UserResource extends Resource
 
     protected static ?string $pluralModelLabel = 'pengguna';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->isSuperAdmin() ?? false;
+    }
+
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $tenantId = app(TenantContext::class)->id();
 
         return parent::getEloquentQuery()
-            ->when($tenantId, fn ($query) => $query->whereHas(
+            ->when($tenantId && ! auth()->user()?->isSuperAdmin(), fn ($query) => $query->whereHas(
                 'tenants',
                 fn ($tenantQuery) => $tenantQuery->whereKey($tenantId),
             ));
@@ -105,6 +110,11 @@ class UserResource extends Resource
                     ->label('Email')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('account_type')
+                    ->label('Tipe akun')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => $state === 'superadmin' ? 'Superadmin' : 'User')
+                    ->color(fn (?string $state): string => $state === 'superadmin' ? 'warning' : 'gray'),
                 TextColumn::make('created_at')
                     ->label('Terdaftar pada')
                     ->dateTime('d M Y H:i')
