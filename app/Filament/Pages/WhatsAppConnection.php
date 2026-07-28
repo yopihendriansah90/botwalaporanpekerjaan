@@ -183,6 +183,10 @@ class WhatsAppConnection extends Page
             $groupJids = collect($groups)->pluck('jid')->filter()->values()->all();
 
             foreach ($groups as $group) {
+                if (blank($group['jid'] ?? null) || blank($group['name'] ?? null)) {
+                    continue;
+                }
+
                 WhatsAppGroup::updateOrCreate(
                     [
                         'whatsapp_connection_id' => $connection->id,

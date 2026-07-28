@@ -182,7 +182,11 @@ app.get('/groups', async (request, response) => {
   const session = getSession(tenantKey(request))
   if (!session.socket || session.state !== 'connected') return response.status(409).json({ message: 'WhatsApp is not connected' })
   const groups = await session.socket.groupFetchAllParticipating()
-  response.json(Object.values(groups).map((group) => ({ jid: group.id, name: group.subject, participants_count: group.participants?.length ?? 0 })))
+  response.json(Object.values(groups).map((group) => ({
+    jid: group.id,
+    name: group.subject ?? group.name ?? group.id,
+    participants_count: group.participants?.length ?? 0,
+  })))
 })
 
 app.post('/send', async (request, response) => {

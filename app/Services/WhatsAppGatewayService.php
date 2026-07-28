@@ -37,7 +37,36 @@ class WhatsAppGatewayService
 
     public function groups(?int $tenantId = null): array
     {
-        return $this->client($tenantId)->get('/groups')->throw()->json();
+        $payload = $this->client($tenantId)->get('/groups')->throw()->json();
+        $groups = $payload['groups'] ?? $payload;
+
+        if (! is_array($groups)) {
+            return [];
+        }
+
+        return collect(array_values($groups))
+            ->map(function (mixed $group): ?array {
+                if (! is_array($group)) {
+                    return null;
+                }
+
+                $jid = $group['jid'] ?? $group['id'] ?? null;
+                $name = $group['name'] ?? $group['subject'] ?? $group['group_name'] ?? null;
+
+                if (blank($jid) || blank($name)) {
+                    return null;
+                }
+
+                return [
+                    'jid' => (string) $jid,
+                    'name' => (string) $name,
+                    'participants_count' => $group['participants_count']
+                        ?? (is_array($group['participants'] ?? null) ? count($group['participants']) : null),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 
     public function send(string $recipient, string $message, ?int $tenantId = null): array
