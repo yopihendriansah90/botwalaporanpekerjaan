@@ -70,8 +70,18 @@ COPY --from=frontend-builder /app/public/build ./public/build
 
 # Atur permission storage dan bootstrap cache agar bisa ditulis web server
 RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache \
-    && chown -R www-data:www-data /var/www/html \
+    && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
 EXPOSE 9000
 CMD ["php-fpm"]
+
+# ==========================================
+# STAGE 4: Production Nginx Image
+# ==========================================
+# Nginx hanya menyajikan folder public dari artifact Laravel yang sama.
+# Dengan begitu vendor dan asset tidak tertimpa bind mount source host.
+FROM nginx:1.27-alpine AS web
+
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY --from=production /var/www/html/public /var/www/html/public

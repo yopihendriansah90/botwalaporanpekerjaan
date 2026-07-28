@@ -1,7 +1,9 @@
 
 services:
   app:
-    build: .
+    build:
+      context: .
+      target: production
     container_name: wabot-app
     restart: unless-stopped
     env_file:
@@ -9,19 +11,21 @@ services:
     environment:
       WHATSAPP_GATEWAY_URL: http://whatsapp-gateway:3001
     volumes:
-      - ./:/var/www/html
+      - storage-prod:/var/www/html/storage
+    depends_on:
+      - db
+      - redis
     networks:
       - wabot-net
 
   web:
-    image: nginx:1.27-alpine
+    build:
+      context: .
+      target: web
     container_name: wabot-web
     restart: unless-stopped
     # ports:
     #   - "8000:80"
-    volumes:
-      - ./:/var/www/html
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - app
     networks:

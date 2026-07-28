@@ -1,0 +1,16 @@
+.git
+.github
+.env
+.env.*
+vendor
+node_modules
+storage/logs
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+public/build
+whatsapp-service/node_modules
+whatsapp-service/auth_info
+docker-compose*.yml
+Dockerfile*
+README.md
