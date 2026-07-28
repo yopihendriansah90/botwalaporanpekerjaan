@@ -7,15 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\Concerns\BelongsToTenant;
 
 class WhatsAppGroup extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $table = 'whatsapp_groups';
 
     protected $fillable = [
         'whatsapp_connection_id',
+        'tenant_id',
         'jid',
         'name',
         'participants_count',
@@ -46,6 +48,6 @@ class WhatsAppGroup extends Model
             'work_report_whatsapp_group',
             'whatsapp_group_id',
             'work_report_id',
-        );
+        )->withPivot('tenant_id');
     }
 }

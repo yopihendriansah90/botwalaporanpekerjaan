@@ -6,6 +6,7 @@ use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\User;
+use App\Services\TenantContext;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -30,6 +31,17 @@ class UserResource extends Resource
     protected static ?string $modelLabel = 'pengguna';
 
     protected static ?string $pluralModelLabel = 'pengguna';
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $tenantId = app(TenantContext::class)->id();
+
+        return parent::getEloquentQuery()
+            ->when($tenantId, fn ($query) => $query->whereHas(
+                'tenants',
+                fn ($tenantQuery) => $tenantQuery->whereKey($tenantId),
+            ));
+    }
 
     public static function form(Schema $schema): Schema
     {

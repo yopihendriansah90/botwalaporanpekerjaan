@@ -6,15 +6,17 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\Concerns\BelongsToTenant;
 
 class WhatsAppMessageLog extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $table = 'whatsapp_message_logs';
 
     protected $fillable = [
         'whatsapp_connection_id',
+        'tenant_id',
         'work_report_id',
         'whatsapp_group_id',
         'recipient_jid',

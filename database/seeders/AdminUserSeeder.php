@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\Tenant;
 use Illuminate\Database\Seeder;
 
 class AdminUserSeeder extends Seeder
@@ -12,7 +13,7 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
-        User::firstOrCreate(
+        $user = User::firstOrCreate(
             ['email' => 'admin@mail.com'],
             [
                 'name' => 'Administrator',
@@ -20,5 +21,12 @@ class AdminUserSeeder extends Seeder
                 'email_verified_at' => now(),
             ],
         );
+
+        $tenant = Tenant::firstOrCreate(
+            ['slug' => 'tenant-utama'],
+            ['name' => 'Tenant Utama', 'is_active' => true],
+        );
+
+        $tenant->users()->syncWithoutDetaching([$user->id => ['role' => 'owner']]);
     }
 }

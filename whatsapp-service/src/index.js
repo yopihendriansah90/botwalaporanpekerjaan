@@ -8,21 +8,39 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys'
 import express from 'express'
 import fs from 'node:fs/promises'
+import path from 'node:path'
 import Pino from 'pino'
 import QRCode from 'qrcode'
 import qrcode from 'qrcode-terminal'
 
 const port = Number(process.env.PORT ?? 3001)
 const apiToken = process.env.WHATSAPP_API_TOKEN
-const authDir = process.env.WHATSAPP_AUTH_DIR ?? './auth_info'
+const authRoot = process.env.WHATSAPP_AUTH_DIR ?? './auth_info'
 const qrTimeoutMs = Number(process.env.WHATSAPP_QR_TIMEOUT_MS ?? 60000)
 const logger = Pino({ level: process.env.LOG_LEVEL ?? 'info' })
+const sessions = new Map()
 
-let socket = null
-let connectionState = 'disconnected'
-let latestQr = null
-let lastError = null
-let qrRetryTimer = null
+function getSession(tenantId) {
+  if (!sessions.has(tenantId)) {
+    sessions.set(tenantId, {
+      socket: null,
+      state: 'disconnected',
+      qr: null,
+      lastError: null,
+      qrTimer: null,
+    })
+  }
+
+  return sessions.get(tenantId)
+}
+
+function tenantKey(request) {
+  return String(request.header('x-tenant-id') || 'default').replace(/[^a-zA-Z0-9_-]/g, '_')
+}
+
+function authPath(tenantId) {
+  return path.join(authRoot, tenantId)
+}
 
 function requireApiToken(request, response, next) {
   if (!apiToken || request.header('x-api-key') !== apiToken) {
@@ -33,24 +51,20 @@ function requireApiToken(request, response, next) {
 }
 
 function normalizeJid(value) {
-  if (value.endsWith('@g.us') || value.endsWith('@s.whatsapp.net')) {
-    return value
-  }
-
+  if (value.endsWith('@g.us') || value.endsWith('@s.whatsapp.net')) return value
   return `${value.replace(/\D/g, '')}@s.whatsapp.net`
 }
 
-async function connectWhatsApp() {
-  if (socket || connectionState === 'connecting' || connectionState === 'qr_required') {
-    return
-  }
+async function connectWhatsApp(tenantId) {
+  const session = getSession(tenantId)
 
-  connectionState = 'connecting'
+  if (session.socket || session.state === 'connecting' || session.state === 'qr_required') return
 
-  const { state, saveCreds } = await useMultiFileAuthState(authDir)
+  session.state = 'connecting'
+  const { state, saveCreds } = await useMultiFileAuthState(authPath(tenantId))
   const { version } = await fetchLatestBaileysVersion()
 
-  socket = makeWASocket({
+  const socket = makeWASocket({
     version,
     auth: state,
     browser: Browsers.ubuntu('Wabot'),
@@ -59,84 +73,72 @@ async function connectWhatsApp() {
     markOnlineOnConnect: false,
   })
 
+  session.socket = socket
   socket.ev.on('creds.update', saveCreds)
-
   socket.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (qr) {
-      if (qrRetryTimer) {
-        clearTimeout(qrRetryTimer)
-      }
-
-      latestQr = await QRCode.toDataURL(qr, { margin: 1, width: 320 })
-      connectionState = 'qr_required'
+      if (session.qrTimer) clearTimeout(session.qrTimer)
+      session.qr = await QRCode.toDataURL(qr, { margin: 1, width: 320 })
+      session.state = 'qr_required'
       qrcode.generate(qr, { small: true })
 
-      const currentSocket = socket
-      qrRetryTimer = setTimeout(() => {
-        if (socket === currentSocket && connectionState === 'qr_required') {
-          logger.info('QR Code expired; restarting WhatsApp connection')
-          currentSocket?.end(new Error('QR Code expired'))
+      session.qrTimer = setTimeout(() => {
+        if (session.socket === socket && session.state === 'qr_required') {
+          logger.info({ tenantId }, 'QR Code expired; restarting WhatsApp connection')
+          socket.end(new Error('QR Code expired'))
         }
       }, qrTimeoutMs)
     }
 
     if (connection === 'open') {
-      if (qrRetryTimer) {
-        clearTimeout(qrRetryTimer)
-        qrRetryTimer = null
-      }
-
-      connectionState = 'connected'
-      latestQr = null
-      lastError = null
-      logger.info('WhatsApp connected')
+      if (session.qrTimer) clearTimeout(session.qrTimer)
+      session.qrTimer = null
+      session.state = 'connected'
+      session.qr = null
+      session.lastError = null
+      logger.info({ tenantId }, 'WhatsApp connected')
     }
 
     if (connection === 'close') {
-      if (qrRetryTimer) {
-        clearTimeout(qrRetryTimer)
-        qrRetryTimer = null
-      }
-
-      socket = null
-      connectionState = 'disconnected'
+      if (session.qrTimer) clearTimeout(session.qrTimer)
+      session.qrTimer = null
+      session.socket = null
+      session.state = 'disconnected'
       const statusCode = lastDisconnect?.error?.output?.statusCode
-      lastError = lastDisconnect?.error?.message ?? 'Connection closed'
+      session.lastError = lastDisconnect?.error?.message ?? 'Connection closed'
 
       if (statusCode !== DisconnectReason.loggedOut) {
-        setTimeout(connectWhatsApp, 3000)
+        setTimeout(() => connectWhatsApp(tenantId).catch((error) => {
+          session.state = 'error'
+          session.lastError = error.message ?? 'Failed to reconnect WhatsApp'
+        }), 3000)
       } else {
-        logger.warn('WhatsApp session logged out; QR scan is required')
+        logger.warn({ tenantId }, 'WhatsApp session logged out; QR scan is required')
       }
     }
   })
 }
 
-async function disconnectWhatsApp() {
-  if (socket) {
-    try {
-      await socket.logout()
-    } catch (error) {
-      logger.warn(error, 'WhatsApp logout returned an error')
-    }
+async function disconnectWhatsApp(tenantId) {
+  const session = getSession(tenantId)
+
+  if (session.socket) {
+    try { await session.socket.logout() } catch (error) { logger.warn(error, 'WhatsApp logout returned an error') }
   }
 
-  socket = null
-  connectionState = 'disconnected'
-  latestQr = null
-  lastError = null
-
-  await fs.rm(authDir, { recursive: true, force: true })
+  if (session.qrTimer) clearTimeout(session.qrTimer)
+  session.socket = null
+  session.state = 'disconnected'
+  session.qr = null
+  session.lastError = null
+  await fs.rm(authPath(tenantId), { recursive: true, force: true })
 }
 
-async function waitForConnectionState(timeoutMs = 10000) {
+async function waitForConnectionState(tenantId, timeoutMs = 10000) {
   const startedAt = Date.now()
-
   while (Date.now() - startedAt < timeoutMs) {
-    if (connectionState === 'connected' || connectionState === 'error' || (connectionState === 'qr_required' && latestQr)) {
-      return
-    }
-
+    const session = getSession(tenantId)
+    if (['connected', 'error'].includes(session.state) || (session.state === 'qr_required' && session.qr)) return
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
 }
@@ -144,88 +146,58 @@ async function waitForConnectionState(timeoutMs = 10000) {
 const app = express()
 app.use(express.json({ limit: '1mb' }))
 
-app.get('/health', (_request, response) => {
-  response.json({ ok: true, service: 'whatsapp-service' })
-})
-
+app.get('/health', (_request, response) => response.json({ ok: true, service: 'whatsapp-service' }))
 app.use(requireApiToken)
 
-app.get('/status', (_request, response) => {
-  response.json({
-    state: connectionState,
-    qr: latestQr,
-    last_error: lastError,
-    phone: socket?.user?.id ?? null,
-  })
+app.get('/status', (request, response) => {
+  const tenantId = tenantKey(request)
+  const session = getSession(tenantId)
+  response.json({ state: session.state, qr: session.qr, last_error: session.lastError, phone: session.socket?.user?.id ?? null })
 })
 
-app.post('/connect', async (_request, response) => {
+app.post('/connect', async (request, response) => {
+  const tenantId = tenantKey(request)
+  const session = getSession(tenantId)
   try {
-    await connectWhatsApp()
-    await waitForConnectionState()
-    response.json({ ok: true, state: connectionState, qr: latestQr })
+    await connectWhatsApp(tenantId)
+    await waitForConnectionState(tenantId)
+    response.json({ ok: true, state: session.state, qr: session.qr })
   } catch (error) {
-    connectionState = 'error'
-    lastError = error.message ?? 'Failed to connect WhatsApp'
-    response.status(502).json({ message: lastError })
+    session.state = 'error'
+    session.lastError = error.message ?? 'Failed to connect WhatsApp'
+    response.status(502).json({ message: session.lastError })
   }
 })
 
-app.post('/logout', async (_request, response) => {
+app.post('/logout', async (request, response) => {
   try {
-    await disconnectWhatsApp()
-    response.json({ ok: true, state: connectionState })
+    await disconnectWhatsApp(tenantKey(request))
+    response.json({ ok: true, state: 'disconnected' })
   } catch (error) {
-    lastError = error.message ?? 'Failed to logout WhatsApp'
-    response.status(502).json({ message: lastError })
+    response.status(502).json({ message: error.message ?? 'Failed to logout WhatsApp' })
   }
 })
 
-app.get('/groups', async (_request, response) => {
-  if (!socket || connectionState !== 'connected') {
-    return response.status(409).json({ message: 'WhatsApp is not connected' })
-  }
-
-  const groups = await socket.groupFetchAllParticipating()
-  response.json(Object.values(groups).map((group) => ({
-    jid: group.id,
-    name: group.subject,
-    participants_count: group.participants?.length ?? 0,
-  })))
+app.get('/groups', async (request, response) => {
+  const session = getSession(tenantKey(request))
+  if (!session.socket || session.state !== 'connected') return response.status(409).json({ message: 'WhatsApp is not connected' })
+  const groups = await session.socket.groupFetchAllParticipating()
+  response.json(Object.values(groups).map((group) => ({ jid: group.id, name: group.subject, participants_count: group.participants?.length ?? 0 })))
 })
 
 app.post('/send', async (request, response) => {
   const { to, text } = request.body
-
-  if (!to || !text) {
-    return response.status(422).json({ message: 'The to and text fields are required' })
-  }
-
-  if (!socket || connectionState !== 'connected') {
-    return response.status(409).json({ message: 'WhatsApp is not connected' })
-  }
-
+  const session = getSession(tenantKey(request))
+  if (!to || !text) return response.status(422).json({ message: 'The to and text fields are required' })
+  if (!session.socket || session.state !== 'connected') return response.status(409).json({ message: 'WhatsApp is not connected' })
   try {
     const jid = normalizeJid(to)
-    const result = await socket.sendMessage(jid, { text: String(text) })
-
-    response.json({
-      ok: true,
-      jid,
-      message_id: result?.key?.id ?? null,
-    })
+    const result = await session.socket.sendMessage(jid, { text: String(text) })
+    response.json({ ok: true, jid, message_id: result?.key?.id ?? null })
   } catch (error) {
     logger.error(error, 'Failed to send WhatsApp message')
     response.status(502).json({ message: error.message ?? 'Failed to send message' })
   }
 })
 
-app.listen(port, () => {
-  logger.info(`WhatsApp service listening on http://127.0.0.1:${port}`)
-})
-
-connectWhatsApp().catch((error) => {
-  connectionState = 'error'
-  lastError = error.message
-  logger.error(error, 'Failed to initialize WhatsApp')
-})
+app.listen(port, () => logger.info(`WhatsApp service listening on http://127.0.0.1:${port}`))

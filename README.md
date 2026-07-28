@@ -46,6 +46,17 @@ php artisan schedule:work
 
 Configure weekly schedules at `/admin/message-schedules`.
 
+## Multi-tenant
+
+Data operasional dipisahkan berdasarkan workspace/tenant. Setelah deploy perubahan ini, jalankan:
+
+```bash
+php artisan migrate --force
+php artisan optimize:clear
+```
+
+Workspace dikelola melalui menu `Pengaturan > Workspace`. Pengguna hanya melihat data dari workspace aktif. Service Baileys juga memakai sesi autentikasi terpisah per workspace di bawah `WHATSAPP_AUTH_DIR`, sehingga setiap workspace perlu menghubungkan perangkat WhatsApp-nya sendiri.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

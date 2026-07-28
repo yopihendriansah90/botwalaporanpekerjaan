@@ -7,13 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Concerns\BelongsToTenant;
 
 class WorkReport extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $fillable = [
         'user_id',
+        'tenant_id',
         'message_schedule_id',
         'work_date',
         'officer_name',
@@ -55,7 +57,7 @@ class WorkReport extends Model
             'work_report_whatsapp_group',
             'work_report_id',
             'whatsapp_group_id',
-        );
+        )->withPivot('tenant_id');
     }
 
     public function messageLogs(): HasMany

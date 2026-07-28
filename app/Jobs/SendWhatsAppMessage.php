@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\WhatsAppMessageLog;
 use App\Services\WhatsAppGatewayService;
+use App\Services\TenantContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -25,7 +26,13 @@ class SendWhatsAppMessage implements ShouldQueue
 
     public function handle(WhatsAppGatewayService $gateway): void
     {
-        $result = $gateway->send($this->messageLog->recipient_jid, $this->messageLog->message);
+        $result = app(TenantContext::class)->run((int) $this->messageLog->tenant_id, function () use ($gateway): array {
+            return $gateway->send(
+                $this->messageLog->recipient_jid,
+                $this->messageLog->message,
+                (int) $this->messageLog->tenant_id,
+            );
+        });
 
         $this->messageLog->update([
             'status' => 'sent',

@@ -35,7 +35,9 @@ class CreateMessageSchedule extends CreateRecord
 
     protected function afterCreate(): void
     {
-        $this->record->whatsappGroups()->sync($this->groupIds);
+        $this->record->whatsappGroups()->syncWithPivotValues($this->groupIds, [
+            'tenant_id' => $this->record->tenant_id,
+        ]);
 
         foreach ($this->slots as $slot) {
             MessageScheduleSlot::create([

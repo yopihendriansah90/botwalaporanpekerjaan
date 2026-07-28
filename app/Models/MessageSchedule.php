@@ -6,12 +6,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Concerns\BelongsToTenant;
 
 class MessageSchedule extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
-    protected $fillable = ['name', 'timezone', 'is_active', 'slots'];
+    protected $fillable = ['tenant_id', 'name', 'timezone', 'is_active', 'slots'];
 
     protected function casts(): array
     {
@@ -30,7 +31,7 @@ class MessageSchedule extends Model
             'message_schedule_whatsapp_group',
             'message_schedule_id',
             'whatsapp_group_id',
-        );
+        )->withPivot('tenant_id');
     }
 
     public function workReports(): HasMany

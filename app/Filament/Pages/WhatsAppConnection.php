@@ -126,9 +126,10 @@ class WhatsAppConnection extends Page
         }
     }
 
-    public function refreshStatus(): void
+    public function refreshStatus(bool $autoSync = true): void
     {
         try {
+            $wasConnected = ($this->status['state'] ?? null) === 'connected';
             $this->status = app(WhatsAppGatewayService::class)->status();
 
             $connection = WhatsAppConnectionModel::firstOrCreate([
@@ -142,6 +143,10 @@ class WhatsAppConnection extends Page
             ]);
 
             $this->dispatch('whatsapp-data-updated');
+
+            if ($autoSync && ! $wasConnected && ($this->status['state'] ?? null) === 'connected') {
+                $this->syncGroups(notify: false);
+            }
         } catch (Throwable $exception) {
             $this->status = [
                 'state' => 'service_unavailable',
@@ -152,7 +157,7 @@ class WhatsAppConnection extends Page
 
     public function refreshAndSync(): void
     {
-        $this->refreshStatus();
+        $this->refreshStatus(autoSync: false);
 
         if (($this->status['state'] ?? null) !== 'connected') {
             Notification::make()
@@ -167,13 +172,15 @@ class WhatsAppConnection extends Page
         $this->syncGroups();
     }
 
-    public function syncGroups(): void
+    public function syncGroups(bool $notify = true): void
     {
         try {
             $groups = app(WhatsAppGatewayService::class)->groups();
             $connection = WhatsAppConnectionModel::firstOrCreate([
                 'name' => 'Koneksi utama',
             ]);
+
+            $groupJids = collect($groups)->pluck('jid')->filter()->values()->all();
 
             foreach ($groups as $group) {
                 WhatsAppGroup::updateOrCreate(
@@ -189,13 +196,23 @@ class WhatsAppConnection extends Page
                 );
             }
 
+            $connection->groups()
+                ->when(
+                    filled($groupJids),
+                    fn ($query) => $query->whereNotIn('jid', $groupJids),
+                    fn ($query) => $query,
+                )
+                ->update(['is_active' => false]);
+
             $this->groups = $connection->groups()->where('is_active', true)->orderBy('name')->get()->toArray();
             $this->dispatch('whatsapp-data-updated');
 
-            Notification::make()
-                ->title('Daftar grup berhasil diperbarui')
-                ->success()
-                ->send();
+            if ($notify) {
+                Notification::make()
+                    ->title('Daftar grup berhasil diperbarui')
+                    ->success()
+                    ->send();
+            }
         } catch (Throwable $exception) {
             Notification::make()
                 ->title('Gagal mengambil daftar grup')

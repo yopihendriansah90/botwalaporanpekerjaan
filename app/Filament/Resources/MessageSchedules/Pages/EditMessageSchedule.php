@@ -46,7 +46,9 @@ class EditMessageSchedule extends EditRecord
 
     protected function afterSave(): void
     {
-        $this->record->whatsappGroups()->sync($this->groupIds);
+        $this->record->whatsappGroups()->syncWithPivotValues($this->groupIds, [
+            'tenant_id' => $this->record->tenant_id,
+        ]);
         $this->record->slots()->delete();
 
         foreach ($this->slots as $slot) {

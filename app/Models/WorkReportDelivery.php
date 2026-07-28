@@ -5,13 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\BelongsToTenant;
 
 class WorkReportDelivery extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $fillable = [
-        'work_report_id', 'whatsapp_group_id', 'whatsapp_connection_id',
+        'tenant_id', 'work_report_id', 'whatsapp_group_id', 'whatsapp_connection_id',
         'scheduled_at', 'status', 'dispatched_at', 'whatsapp_message_log_id', 'error_message',
     ];
 
